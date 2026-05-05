@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyCast API — Live Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --sky: #0a1628;
+    --sky-mid: #0d2244;
+    --cloud: #e8f4fd;
+    --frost: #b8d8f0;
+    --sun: #f5c842;
+    --aurora: #3ee8b5;
+    --coral: #ff6b6b;
+    --text: #e2edf7;
+    --muted: #6b8fa8;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(184,216,240,0.12);
+    --mono: 'DM Mono', monospace;
+    --serif: 'Fraunces', serif;
+  }
+
+  body {
+    background: var(--sky);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Sky background ── */
+  .sky-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, #1a3a6e 0%, transparent 70%),
+                radial-gradient(ellipse 40% 30% at 80% 20%, #0d3060 0%, transparent 60%),
+                var(--sky);
+  }
+  .star { position: absolute; background: white; border-radius: 50%; animation: twinkle var(--d, 3s) ease-in-out infinite var(--delay, 0s); }
+  @keyframes twinkle { 0%,100% { opacity: var(--op, 0.6); transform: scale(1); } 50% { opacity: 0.1; transform: scale(0.6); } }
+
+  /* ── Layout ── */
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ── Header ── */
+  header {
+    padding: 56px 0 40px;
+    display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--sun), #ffaa00);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; box-shadow: 0 0 24px rgba(245,200,66,0.35);
+  }
+  h1 { font-family: var(--serif); font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 700; letter-spacing: -0.02em; }
+  h1 span { color: var(--sun); }
+  .tagline { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(62,232,181,0.1); border: 1px solid rgba(62,232,181,0.25);
+    font-size: 0.72rem; color: var(--aurora); letter-spacing: 0.06em;
+  }
+  .badge::before { content:''; width:6px; height:6px; background:var(--aurora); border-radius:50%; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(0.7);} }
+
+  /* ── Endpoint tabs ── */
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tab {
+    padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-family: var(--mono); font-size: 0.78rem;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.04em;
+  }
+  .tab:hover { border-color: var(--frost); color: var(--frost); }
+  .tab.active { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.4); color: var(--sun); }
+
+  /* ── Request builder ── */
+  .panel {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    backdrop-filter: blur(12px); margin-bottom: 16px;
+  }
+  .panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .method-badge {
+    padding: 3px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 500;
+    letter-spacing: 0.06em; background: rgba(62,232,181,0.15); color: var(--aurora);
+    border: 1px solid rgba(62,232,181,0.2);
+  }
+  .endpoint-url { font-size: 0.8rem; color: var(--frost); }
+  .endpoint-url .param { color: var(--sun); }
+
+  .panel-body { padding: 20px; }
+
+  .field-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .field { flex: 1; min-width: 180px; }
+  label { display: block; font-size: 0.68rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  input, select {
+    width: 100%; padding: 10px 14px; border-radius: 8px;
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 0.82rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: rgba(245,200,66,0.4); }
+  select option { background: #0d2244; }
+
+  /* auth header display */
+  .auth-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border);
+    font-size: 0.75rem; margin-bottom: 16px;
+  }
+  .auth-key { color: var(--muted); }
+  .auth-val { color: var(--aurora); font-size: 0.72rem; letter-spacing: 0.04em; }
+  .auth-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-right: auto; }
+
+  .send-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--sun), #e8a800);
+    color: #1a1000; font-family: var(--mono); font-size: 0.8rem; font-weight: 500;
+    letter-spacing: 0.04em; transition: all 0.2s; box-shadow: 0 4px 16px rgba(245,200,66,0.2);
+  }
+  .send-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(245,200,66,0.35); }
+  .send-btn:active { transform: translateY(0); }
+  .send-btn.loading { opacity: 0.7; pointer-events: none; }
+  .send-btn .arrow { transition: transform 0.2s; }
+  .send-btn:hover .arrow { transform: translateX(3px); }
+
+  /* ── Response viewer ── */
+  .response-panel { display: none; }
+  .response-panel.visible { display: block; animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+  .resp-meta {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    font-size: 0.72rem;
+  }
+  .status-ok { color: var(--aurora); }
+  .status-err { color: var(--coral); }
+  .resp-time { color: var(--muted); }
+  .cache-badge {
+    margin-left: auto; padding: 2px 10px; border-radius: 999px;
+    font-size: 0.65rem; letter-spacing: 0.06em;
+  }
+  .cache-hit { background: rgba(62,232,181,0.1); color: var(--aurora); border: 1px solid rgba(62,232,181,0.2); }
+  .cache-miss { background: rgba(245,200,66,0.1); color: var(--sun); border: 1px solid rgba(245,200,66,0.2); }
+
+  .resp-body { padding: 20px; overflow-x: auto; }
+  pre {
+    font-family: var(--mono); font-size: 0.78rem; line-height: 1.7;
+    color: var(--frost); white-space: pre-wrap; word-break: break-word;
+  }
+  .json-key { color: #7dd3fc; }
+  .json-str { color: #86efac; }
+  .json-num { color: var(--sun); }
+  .json-bool { color: var(--aurora); }
+
+  /* ── Weather card ── */
+  .weather-card {
+    display: none; padding: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .weather-card.visible { display: block; animation: slideUp 0.4s ease 0.1s both; }
+  .wc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  .wc-city { font-family: var(--serif); font-size: 1.6rem; font-weight: 700; }
+  .wc-country { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+  .wc-temp { font-family: var(--serif); font-size: 3rem; font-weight: 300; color: var(--sun); line-height: 1; }
+  .wc-temp sup { font-size: 1.2rem; vertical-align: super; }
+  .wc-condition { color: var(--frost); font-size: 0.8rem; margin-top: 4px; text-align: right; }
+  .wc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+  .wc-stat {
+    padding: 14px; border-radius: 10px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  }
+  .wc-stat-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .wc-stat-val { font-size: 1.1rem; color: var(--cloud); }
+
+  /* ── Forecast bars ── */
+  .forecast-grid { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+  .forecast-item {
+    flex: 0 0 auto; width: 80px; padding: 12px 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+    text-align: center;
+  }
+  .fc-time { font-size: 0.65rem; color: var(--muted); margin-bottom: 6px; }
+  .fc-temp { font-size: 1rem; color: var(--sun); font-family: var(--serif); }
+  .fc-cond { font-size: 0.6rem; color: var(--muted); margin-top: 4px; line-height: 1.3; }
+
+  /* ── Feature callouts ── */
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 32px; }
+  .feature {
+    padding: 18px; border-radius: 12px;
+    background: var(--card); border: 1px solid var(--border);
+  }
+  .feature-icon { font-size: 1.4rem; margin-bottom: 10px; }
+  .feature-title { font-size: 0.8rem; color: var(--cloud); margin-bottom: 4px; }
+  .feature-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── Divider ── */
+  .section-label {
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted); margin: 32px 0 14px; display: flex; align-items: center; gap: 12px;
+  }
+  .section-label::after { content:''; flex:1; height:1px; background: var(--border); }
+
+  /* ── Error state ── */
+  .error-msg { color: var(--coral); font-size: 0.8rem; padding: 12px 20px; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="sky-bg" id="skyBg"></div>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="logo">
+        <div class="logo-icon">🌤</div>
+        <div>
+          <h1>Sky<span>Cast</span></h1>
+          <div class="tagline">REST API Integration Demo</div>
+        </div>
+      </div>
+    </div>
+    <div class="badge">Live Demo</div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('current', this)">GET /current</button>
+    <button class="tab" onclick="switchTab('forecast', this)">GET /forecast</button>
+    <button class="tab" onclick="switchTab('health', this)">GET /health</button>
+  </div>
+
+  <!-- Request panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="method-badge">GET</span>
+      <span class="endpoint-url" id="endpointDisplay">
+        /api/v1/weather/current?city=<span class="param">{city}</span>
+      </span>
+    </div>
+    <div class="panel-body">
+
+      <!-- Auth header -->
+      <div class="auth-row">
+        <span class="auth-label">Auth</span>
+        <span class="auth-key">x-api-key:</span>
+        <span class="auth-val">sk_demo_••••••••••••</span>
+        <span style="font-size:0.65rem;color:var(--aurora);">✓ valid</span>
+      </div>
+
+      <!-- Fields -->
+      <div class="field-row" id="paramFields">
+        <div class="field">
+          <label>City</label>
+          <input type="text" id="cityInput" value="London" placeholder="e.g. Tokyo, New York" />
+        </div>
+        <div class="field" id="daysField" style="display:none;">
+          <label>Days (1–5)</label>
+          <select id="daysInput">
+            <option value="1">1 day</option>
+            <option value="2">2 days</option>
+            <option value="3">3 days</option>
+            <option value="5" selected>5 days</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="send-btn" id="sendBtn" onclick="sendRequest()">
+        Send Request <span class="arrow">→</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Response panel -->
+  <div class="panel response-panel" id="responsePanel">
+    <div class="resp-meta" id="respMeta"></div>
+    <div id="weatherCard" class="weather-card"></div>
+    <div class="resp-body">
+      <pre id="respOutput"></pre>
+    </div>
+  </div>
+
+  <!-- Feature callouts -->
+  <div class="section-label">What this integration demonstrates</div>
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">🔐</div>
+      <div class="feature-title">API Key Auth</div>
+      <div class="feature-desc">Every request requires a valid <code>x-api-key</code> header. Returns 401 without it.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">In-Memory Cache</div>
+      <div class="feature-desc">Responses cached for 10 minutes. Repeat requests return instantly, saving upstream calls.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🛡</div>
+      <div class="feature-title">Input Validation</div>
+      <div class="feature-desc">Joi schemas validate all query params. Missing or invalid inputs return structured 400 errors.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🔄</div>
+      <div class="feature-title">Retry Logic</div>
+      <div class="feature-desc">Axios interceptor retries on 5xx errors with exponential backoff (up to 2 attempts).</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🚦</div>
+      <div class="feature-title">Rate Limiting</div>
+      <div class="feature-desc">60 requests/minute per client. Protects both the service and the upstream API quota.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📋</div>
+      <div class="feature-title">Clean Error Handling</div>
+      <div class="feature-desc">All errors return consistent JSON with status codes — no stack traces leaking to clients.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Stars ──
+(function() {
+  const bg = document.getElementById('skyBg');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    const size = Math.random() * 2 + 0.5;
+    s.className = 'star';
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random()*100}%; left:${Math.random()*100}%;
+      --op:${Math.random()*0.5+0.2};
+      --d:${Math.random()*3+2}s;
+      --delay:-${Math.random()*5}s;
+    `;
+    bg.appendChild(s);
+  }
+})();
+
+// ── Tab state ──
+let currentTab = 'current';
+
+const endpoints = {
+  current:  '/api/v1/weather/current?city=<span class="param">{city}</span>',
+  forecast: '/api/v1/weather/forecast?city=<span class="param">{city}</span>&days=<span class="param">{days}</span>',
+  health:   '/health',
+};
+
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('endpointDisplay').innerHTML = endpoints[tab];
+
+  const daysField = document.getElementById('daysField');
+  const cityField = document.getElementById('cityInput').closest('.field');
+  daysField.style.display = tab === 'forecast' ? 'block' : 'none';
+  cityField.style.display = tab === 'health' ? 'none' : 'block';
+
+  // Reset response
+  document.getElementById('responsePanel').classList.remove('visible');
+  document.getElementById('weatherCard').classList.remove('visible');
+}
+
+// ── Mock API responses ──
+const MOCK_CURRENT = {
+  London: { city: 'London', country: 'GB', temperature: 14.2, feelsLike: 12.8, humidity: 72, conditions: 'scattered clouds', windSpeed: 5.1, timestamp: new Date().toISOString(), _cached: false },
+  Tokyo:  { city: 'Tokyo',  country: 'JP', temperature: 22.7, feelsLike: 22.1, humidity: 60, conditions: 'clear sky',        windSpeed: 2.8, timestamp: new Date().toISOString(), _cached: false },
+  Paris:  { city: 'Paris',  country: 'FR', temperature: 17.3, feelsLike: 16.5, humidity: 65, conditions: 'light rain',        windSpeed: 3.9, timestamp: new Date().toISOString(), _cached: false },
+};
+
+function getMockCurrent(city) {
+  return MOCK_CURRENT[city] || {
+    city, country: 'XX', temperature: 18.4, feelsLike: 17.2,
+    humidity: 58, conditions: 'partly cloudy', windSpeed: 4.3,
+    timestamp: new Date().toISOString(), _cached: false,
+  };
+}
+
+function getMockForecast(city, days) {
+  const base = getMockCurrent(city);
+  const list = [];
+  const now = Date.now();
+  for (let i = 0; i < days * 8; i++) {
+    list.push({
+      time: new Date(now + i * 3 * 3600 * 1000).toISOString(),
+      temperature: +(base.temperature + (Math.random() * 6 - 3)).toFixed(1),
+      conditions: ['clear sky','light clouds','scattered clouds','light rain'][Math.floor(Math.random()*4)],
+    });
+  }
+  return { city: base.city, country: base.country, forecast: list };
+}
+
+// ── JSON syntax highlighter ──
+function highlight(obj) {
+  const json = JSON.stringify(obj, null, 2);
+  return json
+    .replace(/("(?:[^"\\]|\\.)*")(\s*:)/g, '<span class="json-key">$1</span>$2')
+    .replace(/:\s*("(?:[^"\\]|\\.)*")/g, ': <span class="json-str">$1</span>')
+    .replace(/:\s*(-?\d+\.?\d*)/g, ': <span class="json-num">$1</span>')
+    .replace(/:\s*(true|false|null)/g, ': <span class="json-bool">$1</span>');
+}
+
+// ── Weather card renderer ──
+function renderWeatherCard(data) {
+  const icons = { 'clear sky':'☀️','scattered clouds':'⛅','light clouds':'🌤','partly cloudy':'⛅','light rain':'🌦','few clouds':'🌤' };
+  const icon = icons[data.conditions] || '🌡';
+  return `
+    <div class="wc-top">
+      <div>
+        <div class="wc-city">${icon} ${data.city}</div>
+        <div class="wc-country">${data.country} · ${new Date(data.timestamp).toUTCString().slice(0,22)}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="wc-temp">${data.temperature}<sup>°C</sup></div>
+        <div class="wc-condition">${data.conditions}</div>
+      </div>
+    </div>
+    <div class="wc-grid">
+      <div class="wc-stat"><div class="wc-stat-label">Feels like</div><div class="wc-stat-val">${data.feelsLike}°C</div></div>
+      <div class="wc-stat"><div class="wc-stat-label">Humidity</div><div class="wc-stat-val">${data.humidity}%</div></div>
+      <div class="wc-stat"><div class="wc-stat-label">Wind</div><div class="wc-stat-val">${data.windSpeed} m/s</div></div>
+      <div class="wc-stat"><div class="wc-stat-label">Cached</div><div class="wc-stat-val" style="color:${data._cached ? 'var(--aurora)' : 'var(--sun)'}">${data._cached ? 'Yes ⚡' : 'No (fresh)'}</div></div>
+    </div>
+  `;
+}
+
+function renderForecastCard(data) {
+  const slice = data.forecast.slice(0, 8);
+  const items = slice.map(f => `
+    <div class="forecast-item">
+      <div class="fc-time">${new Date(f.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="fc-temp">${f.temperature}°</div>
+      <div class="fc-cond">${f.conditions}</div>
+    </div>
+  `).join('');
+  return `
+    <div style="margin-bottom:14px">
+      <div class="wc-city" style="font-size:1.2rem">📅 ${data.city}, ${data.country}</div>
+      <div class="wc-country">Next ${slice.length * 3}h forecast</div>
+    </div>
+    <div class="forecast-grid">${items}</div>
+  `;
+}
+
+// ── Send request ──
+async function sendRequest() {
+  const btn = document.getElementById('sendBtn');
+  btn.classList.add('loading');
+  btn.textContent = 'Sending…';
+
+  const city = document.getElementById('cityInput').value.trim() || 'London';
+  const days = parseInt(document.getElementById('daysInput').value);
+  const start = Date.now();
+
+  // Simulate network delay
+  await new Promise(r => setTimeout(r, 420 + Math.random() * 300));
+
+  const elapsed = Date.now() - start;
+  const panel   = document.getElementById('responsePanel');
+  const meta    = document.getElementById('respMeta');
+  const output  = document.getElementById('respOutput');
+  const wcard   = document.getElementById('weatherCard');
+
+  let statusHTML, cacheHTML, responseObj, cardHTML = null;
+
+  if (currentTab === 'health') {
+    responseObj = { status: 'ok' };
+    statusHTML = '<span class="status-ok">200 OK</span>';
+    cacheHTML = '';
+    wcard.classList.remove('visible');
+
+  } else if (currentTab === 'current') {
+    if (city.length < 2) {
+      responseObj = { error: '"city" length must be at least 2 characters long' };
+      statusHTML = '<span class="status-err">400 Bad Request</span>';
+      cacheHTML = '';
+      wcard.classList.remove('visible');
+    } else {
+      const data = getMockCurrent(city);
+      // Second call = cached
+      if (panel.classList.contains('visible') && output.textContent.includes('"city"')) {
+        data._cached = true;
+      }
+      responseObj = { success: true, data };
+      statusHTML = '<span class="status-ok">200 OK</span>';
+      cacheHTML = data._cached
+        ? '<span class="cache-badge cache-hit">⚡ Cache HIT</span>'
+        : '<span class="cache-badge cache-miss">↓ Cache MISS</span>';
+      cardHTML = renderWeatherCard(data);
+    }
+
+  } else if (currentTab === 'forecast') {
+    if (city.length < 2) {
+      responseObj = { error: '"city" length must be at least 2 characters long' };
+      statusHTML = '<span class="status-err">400 Bad Request</span>';
+      cacheHTML = '';
+      wcard.classList.remove('visible');
+    } else {
+      const data = getMockForecast(city, days);
+      responseObj = { success: true, data };
+      statusHTML = '<span class="status-ok">200 OK</span>';
+      cacheHTML = '<span class="cache-badge cache-miss">↓ Cache MISS</span>';
+      cardHTML = renderForecastCard(data);
+    }
+  }
+
+  meta.innerHTML = `${statusHTML} <span class="resp-time">${elapsed}ms</span> ${cacheHTML}`;
+  output.innerHTML = highlight(responseObj);
+
+  if (cardHTML) {
+    wcard.innerHTML = cardHTML;
+    wcard.classList.add('visible');
+  } else {
+    wcard.classList.remove('visible');
+  }
+
+  panel.classList.add('visible');
+
+  btn.classList.remove('loading');
+  btn.innerHTML = 'Send Request <span class="arrow">→</span>';
+}
+
+// Allow Enter key
+document.getElementById('cityInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendRequest();
+});
+</script>
+</body>
+</html>
